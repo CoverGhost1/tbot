@@ -25,7 +25,7 @@ def main():
     application.add_handler(CommandHandler("cuaca", weather))
     application.add_handler(CommandHandler("shalat", prayer_advanced))
     application.add_handler(CommandHandler("setlokasi", set_location))
-    application.add_handler(CommandHandler("my-lokasi", my_location))
+    application.add_handler(CommandHandler("mylokasi", my_location))  # <-- GANTI INI!
     
     # Message handler untuk kalkulator
     application.add_handler(MessageHandler(
