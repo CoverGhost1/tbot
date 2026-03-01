@@ -1,99 +1,114 @@
 import requests
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, CallbackQueryHandler
-from urllib.parse import quote
+from telegram.ext import ContextTypes
+from database import SessionLocal, RecipeHistory
+from datetime import datetime
 
-# Pake API gratis dari TheMealDB
+# ALTERNATIF 1: Edamam API (harus daftar)
+EDAMAM_APP_ID = os.environ.get("EDAMAM_APP_ID", "")
+EDAMAM_APP_KEY = os.environ.get("EDAMAM_APP_KEY", "")
+
+# ALTERNATIF 2: API Masakan Indonesia (scraping atau custom)
+# Pake API publik dari mealdb tapi filter masakan Asia
 BASE_URL = "https://www.themealdb.com/api/json/v1/1"
 
-async def search_recipe(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Cari resep berdasarkan keyword"""
+async def search_recipe_indonesia(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cari resep dengan filter masakan Asia/Indonesia"""
     if not context.args:
-        await update.message.reply_text(
-            "🍳 **Cari Resep Masakan**\n\n"
-            "Contoh: `/resep nasi goreng`\n"
-            "Atau: `/resep ayam`",
-            parse_mode='Markdown'
-        )
+        await update.message.reply_text("🍳 **Cari Resep**\nContoh: `/resep rendang`", parse_mode='Markdown')
         return
     
     keyword = " ".join(context.args)
-    await update.message.reply_text(f"🔍 Mencari resep untuk: *{keyword}*...", parse_mode='Markdown')
+    await update.message.reply_text(f"🔍 Mencari resep *{keyword}*...", parse_mode='Markdown')
     
-    # Cari resep
-    url = f"{BASE_URL}/search.php?s={quote(keyword)}"
+    # Simpan ke database history
+    db = SessionLocal()
+    history = RecipeHistory(
+        user_id=update.effective_user.id,
+        recipe_name=keyword
+    )
+    db.add(history)
+    db.commit()
+    
+    # Coba cari di TheMealDB
+    url = f"{BASE_URL}/search.php?s={keyword}"
     response = requests.get(url)
     
-    if response.status_code != 200:
-        await update.message.reply_text("❌ Gagal mengambil data resep. Coba lagi nanti.")
-        return
+    if response.status_code == 200:
+        data = response.json()
+        meals = data.get("meals", [])
+        
+        # Filter masakan Asia aja
+        asian_countries = ['Indonesian', 'Malaysian', 'Thai', 'Japanese', 'Chinese', 'Korean', 'Indian', 'Vietnamese', 'Filipino']
+        asian_meals = [
+            meal for meal in meals 
+            if meal.get('strArea') in asian_countries
+        ] if meals else []
+        
+        if asian_meals:
+            keyboard = []
+            for meal in asian_meals[:5]:
+                keyboard.append([InlineKeyboardButton(
+                    f"{meal['strMeal']} ({meal['strArea']})", 
+                    callback_data=f"recipe_{meal['idMeal']}"
+                )])
+            
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text(
+                f"Ditemukan {len(asian_meals)} resep Asia:",
+                reply_markup=reply_markup
+            )
+            return
     
-    data = response.json()
-    meals = data.get("meals", [])
-    
-    if not meals:
-        await update.message.reply_text(f"❌ Resep untuk '{keyword}' tidak ditemukan.")
-        return
-    
-    # Tampilkan 5 resep pertama
-    keyboard = []
-    for meal in meals[:5]:
-        keyboard.append([InlineKeyboardButton(
-            meal['strMeal'], 
-            callback_data=f"recipe_{meal['idMeal']}"
-        )])
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Kalo ga ketemu, kasih alternatif
     await update.message.reply_text(
-        f"Ditemukan {len(meals)} resep. Pilih yang mau dilihat:",
-        reply_markup=reply_markup
+        f"❌ Resep '{keyword}' tidak ditemukan.\n\n"
+        f"**Tips:** Coba keyword lain atau masakan umum:\n"
+        f"• rendang\n• nasi goreng\n• sate\n• gulai\n• opor"
     )
 
-async def recipe_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler untuk callback dari inline button resep"""
+async def recipe_detail_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler untuk detail resep"""
     query = update.callback_query
     await query.answer()
     
     meal_id = query.data.replace("recipe_", "")
     
-    # Ambil detail resep
     url = f"{BASE_URL}/lookup.php?i={meal_id}"
     response = requests.get(url)
     
     if response.status_code != 200:
-        await query.edit_message_text("❌ Gagal mengambil detail resep.")
+        await query.edit_message_text("❌ Gagal ambil detail resep.")
         return
     
-    data = response.json()
-    meal = data['meals'][0]
+    meal = response.json()['meals'][0]
     
-    # Format bahan-bahan
+    # Ambil bahan-bahan
     ingredients = []
     for i in range(1, 21):
-        ingredient = meal.get(f"strIngredient{i}")
+        ing = meal.get(f"strIngredient{i}")
         measure = meal.get(f"strMeasure{i}")
-        if ingredient and ingredient.strip():
-            ingredients.append(f"• {measure} {ingredient}".strip())
+        if ing and ing.strip() and ing != " ":
+            ingredients.append(f"• {measure} {ing}".strip())
     
-    ingredients_text = "\n".join(ingredients[:10])  # Max 10 bahan
+    ingredients_text = "\n".join(ingredients[:10])
     
-    # Format instruksi
-    instructions = meal['strInstructions'][:500] + "..." if len(meal['strInstructions']) > 500 else meal['strInstructions']
+    # Ambil instruksi (potong kalo kepanjangan)
+    instructions = meal['strInstructions']
+    if len(instructions) > 1000:
+        instructions = instructions[:1000] + "...\n\n[Lanjutan di sumber asli]"
     
-    # Pesan lengkap
-    recipe_msg = (
+    # Buat pesan
+    msg = (
         f"🍽 **{meal['strMeal']}**\n"
         f"🌍 Asal: {meal['strArea']}\n"
         f"🍴 Kategori: {meal['strCategory']}\n\n"
         f"**Bahan-bahan:**\n{ingredients_text}\n\n"
-        f"**Cara masak:**\n{instructions}\n"
+        f"**Cara Masak:**\n{instructions}\n"
     )
     
     if meal.get('strYoutube'):
-        recipe_msg += f"\n📺 Video: {meal['strYoutube']}"
+        msg += f"\n📺 [Tonton Video]({meal['strYoutube']})"
     
-    if meal.get('strSource'):
-        recipe_msg += f"\n📝 Sumber: {meal['strSource']}"
-    
-    await query.edit_message_text(recipe_msg, parse_mode='Markdown', disable_web_page_preview=True)
+    await query.edit_message_text(msg, parse_mode='Markdown', disable_web_page_preview=True)
