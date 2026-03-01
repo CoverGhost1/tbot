@@ -15,7 +15,7 @@ class UserLocation(Base):
     __tablename__ = "user_locations"
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, unique=True, index=True)
+    user_id = Column(BigInteger, unique=True, index=True)
     username = Column(String, nullable=True)
     city_name = Column(String)  # Nama custom
     latitude = Column(Float)    # Koordinat
@@ -28,7 +28,7 @@ class RecipeHistory(Base):
     __tablename__ = "recipe_history"
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, index=True)
+    user_id = Column(BigInteger, index=True)
     recipe_name = Column(String)
     searched_at = Column(DateTime, default=datetime.now(pytz.UTC))
 
