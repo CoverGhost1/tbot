@@ -1,4 +1,4 @@
 python-telegram-bot==20.7
 requests==2.31.0
-googletrans
+googletrans==3.1.0a0
 pytz==2023.3
