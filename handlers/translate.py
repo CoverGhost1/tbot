@@ -1,11 +1,8 @@
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 from telegram import Update
 from telegram.ext import ContextTypes
 
-# Inisialisasi translator
-translator = Translator()
-
-# Daftar kode bahasa umum
+# Daftar kode bahasa umum (sama seperti sebelumnya)
 LANGUAGE_CODES = {
     'id': 'Indonesia',
     'en': 'Inggris',
@@ -26,7 +23,7 @@ LANGUAGE_CODES = {
 }
 
 async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Terjemahkan teks ke bahasa lain"""
+    """Terjemahkan teks ke bahasa lain menggunakan deep-translator"""
     if len(context.args) < 2:
         # Tampilkan panduan
         codes_list = "\n".join([f"• `{code}`: {name}" for code, name in list(LANGUAGE_CODES.items())[:10]])
@@ -40,10 +37,10 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
         return
-    
+
     dest_lang = context.args[0].lower()
     text = " ".join(context.args[1:])
-    
+
     # Validasi kode bahasa
     if dest_lang not in LANGUAGE_CODES:
         await update.message.reply_text(
@@ -51,28 +48,32 @@ async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Coba kode: id, en, ar, ja, ko, zh-cn"
         )
         return
-    
+
     try:
-        # Deteksi bahasa asal
-        detected = translator.detect(text)
-        source_lang = detected.lang
-        
+        # Inisialisasi translator
+        translator = GoogleTranslator(source='auto', target=dest_lang)
+
+        # Dapatkan bahasa sumber yang terdeteksi (deep-translator tidak langsung memberikan ini, jadi kita set 'auto')
+        # Untuk mendapatkan bahasa sumber, kita bisa melakukan pendeteksian terpisah atau menggunakan pustaka lain.
+        # Sebagai solusi sederhana, kita akan menampilkan 'auto' sebagai sumber.
+        source_lang = 'auto'  # Atau bisa menggunakan library 'langdetect' jika ingin lebih akurat
+
         # Terjemahkan
-        result = translator.translate(text, dest=dest_lang)
-        
+        translated_text = translator.translate(text)
+
         # Format pesan
-        source_name = LANGUAGE_CODES.get(source_lang, source_lang)
+        source_name = "Terdeteksi Otomatis"
         dest_name = LANGUAGE_CODES.get(dest_lang, dest_lang)
-        
+
         translation_msg = (
             f"🌍 **Terjemahan**\n"
-            f"Dari: {source_name} ({source_lang})\n"
+            f"Dari: {source_name}\n"
             f"Ke: {dest_name} ({dest_lang})\n\n"
             f"**Asli:**\n{text}\n\n"
-            f"**Hasil:**\n{result.text}"
+            f"**Hasil:**\n{translated_text}"
         )
-        
+
         await update.message.reply_text(translation_msg, parse_mode='Markdown')
-        
+
     except Exception as e:
         await update.message.reply_text(f"❌ Gagal menerjemahkan. Error: {str(e)}")
