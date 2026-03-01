@@ -57,7 +57,7 @@ async def set_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"✅ Lokasi '{city_name}' tersimpan!")
 
 async def my_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Lihat lokasi tersimpan"""
+    """Lihat lokasi tersimpan (command: /mylokasi)"""  # <-- Update ini
     db = SessionLocal()
     user_id = update.effective_user.id
     user_loc = db.query(UserLocation).filter_by(user_id=user_id).first()
@@ -72,7 +72,9 @@ async def my_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
     else:
-        await update.message.reply_text("❌ Belum ada lokasi tersimpan. Ketik `/setlokasi` untuk setting.")
+        await update.message.reply_text(
+            "❌ Belum ada lokasi tersimpan. Ketik `/setlokasi` untuk setting."
+        )
 
 async def prayer_advanced(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Jadwal shalat berdasarkan koordinat user"""
