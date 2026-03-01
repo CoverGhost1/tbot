@@ -6,10 +6,10 @@ from telegram.ext import (
 from telegram import Update
 from handlers.start import start, help_command
 from handlers.calculator import calculator, handle_calculation
-from handlers.recipe_fixed import search_recipe_indonesia, recipe_detail_callback
+from handlers.recipe import search_recipe_indonesia, recipe_detail_callback
 from handlers.translate import translate
 from handlers.weather import weather
-from handlers.prayer_advanced import prayer_advanced, set_location, my_location
+from handlers.prayer import prayer_advanced, set_location, my_location
 
 TOKEN = os.environ.get("TOKEN")
 
