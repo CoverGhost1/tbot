@@ -1,13 +1,14 @@
 import os
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler
+from telegram import Update
 from handlers.start import start, help_command
 from handlers.calculator import calculator, handle_calculation
 from handlers.recipe import search_recipe, recipe_callback
-from handlers.translate import translate, handle_translation
+from handlers.translate import translate  # UBAH: Hapus handle_translation
 from handlers.weather import weather
 from handlers.prayer import prayer
 
-TOKEN = os.environ.get("TOKEN", "8392411460:AAHrYZZCz61OALCts5Ic_e7LOQKv5P9XA2w")
+TOKEN = os.environ.get("TOKEN", "YOUR_BOT_TOKEN")
 
 def main():
     # Buat aplikasi bot
